@@ -1,0 +1,1196 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pomiary okresu — porównanie metod</title>
+<style>
+  :root{
+    --fg:#111;
+    --muted:#666;
+    --line:#c9c9c9;
+    --soft:#f5f5f5;
+    --excluded:#aaa;
+    --central70:#b42318;
+    --central70-fill:#fde7e7;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    color:var(--fg);
+    background:#fff;
+  }
+  main{
+    max-width:1120px;
+    margin:0 auto;
+    padding:20px 22px 36px;
+  }
+  h1{
+    font-size:24px;
+    font-weight:650;
+    margin:0 0 4px;
+  }
+  .subtitle{
+    margin:0 0 18px;
+    color:var(--muted);
+    font-size:14px;
+  }
+  .controls{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:16px;
+    margin-bottom:16px;
+  }
+  .panel{
+    border:1px solid var(--line);
+    padding:14px;
+  }
+  .panel h2{
+    font-size:17px;
+    margin:0 0 10px;
+    font-weight:650;
+  }
+  .entry{
+    display:flex;
+    gap:8px;
+    align-items:center;
+    margin-bottom:10px;
+  }
+  input{
+    width:150px;
+    font:inherit;
+    font-size:18px;
+    padding:7px 9px;
+    border:1px solid #888;
+  }
+  button, select{
+    font:inherit;
+    border:1px solid #888;
+    background:#fff;
+    padding:7px 10px;
+  }
+  button{cursor:pointer}
+  button:hover{background:var(--soft)}
+  button:disabled{opacity:.45;cursor:default}
+  select{padding:5px 7px}
+  .small{font-size:13px;color:var(--muted)}
+  .measurements{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    min-height:31px;
+    margin-top:8px;
+  }
+  .chip{
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    border:1px solid #bbb;
+    padding:3px 4px 3px 7px;
+    font-variant-numeric:tabular-nums;
+    background:#fff;
+  }
+  .chip.excluded{
+    color:var(--excluded);
+    text-decoration:line-through;
+    background:#fafafa;
+  }
+  .chip button{
+    border:0;
+    padding:1px 4px;
+    color:inherit;
+    background:transparent;
+    font-size:12px;
+  }
+  .chip button:hover{background:#eee}
+  .toolbar{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px 12px;
+    align-items:center;
+    margin:12px 0 6px;
+  }
+  .color-control{
+    display:flex;
+    align-items:center;
+    gap:5px;
+    font-size:13px;
+    color:var(--muted);
+  }
+  .status{
+    margin-left:auto;
+    font-size:13px;
+    color:var(--muted);
+  }
+  .chart-block{
+    border-top:1px solid var(--line);
+    padding:16px 0 8px;
+  }
+  .chart-header{
+    display:flex;
+    gap:12px;
+    align-items:baseline;
+    flex-wrap:wrap;
+  }
+  .chart-header h3{
+    margin:0;
+    font-size:17px;
+    font-weight:650;
+  }
+  .summary{
+    color:var(--muted);
+    font-size:14px;
+    font-variant-numeric:tabular-nums;
+  }
+  svg{
+    display:block;
+    width:100%;
+    height:auto;
+    min-height:150px;
+    overflow:visible;
+  }
+  .axis{stroke:#222;stroke-width:1}
+  .tick{stroke:#777;stroke-width:1}
+  .tick-label{
+    fill:#444;
+    font-size:13px;
+    text-anchor:middle;
+  }
+  .lane-label{
+    fill:#333;
+    font-size:13px;
+  }
+  .point-excluded{
+    fill:#ddd;
+    stroke:#aaa;
+    opacity:.8;
+  }
+  .mean-label{
+    font-size:13px;
+    font-weight:600;
+  }
+  .central70-band{
+    fill:var(--central70-fill);
+    opacity:.72;
+  }
+  .central70-boundary{
+    stroke:var(--central70);
+    stroke-width:1.5;
+    stroke-dasharray:4 3;
+  }
+  .central70-label{
+    fill:var(--central70);
+    font-size:12px;
+    font-weight:600;
+  }
+  .empty{
+    color:var(--muted);
+    font-size:14px;
+    padding:24px 0 18px;
+  }
+  .note{
+    margin-top:12px;
+    padding-top:10px;
+    border-top:1px solid var(--line);
+    font-size:13px;
+    color:var(--muted);
+  }
+  @media (max-width:760px){
+    .controls{grid-template-columns:1fr}
+    .status{width:100%;margin-left:0}
+    input{width:135px}
+  }
+</style>
+</head>
+<body>
+<main>
+  <section id="stage-1">
+    <h1>Pomiary okresu</h1>
+    <p class="subtitle">
+      Każdy punkt to jeden wynik T. Wpis można podać z przecinkiem lub kropką dziesiętną.
+      Zapis cyfr znaczących jest zachowywany.
+    </p>
+
+    <section class="controls" style="grid-template-columns:1fr">
+      <div class="panel">
+        <h2>Pomiar jednego okresu</h2>
+        <div class="entry">
+          <input id="input-single" inputmode="decimal" autocomplete="off" placeholder="np. 1,90" aria-label="Pomiar jednego okresu w sekundach">
+          <button id="add-single">Dodaj</button>
+        </div>
+        <div class="small">Podawaj T w sekundach.</div>
+        <div id="list-single" class="measurements"></div>
+        <div class="toolbar">
+          <button id="clear-single">Wyczyść grupę</button>
+          <label class="color-control">Kolor:
+            <select id="color-single" aria-label="Kolor pomiarów pojedynczego okresu">
+              <option value="#111111">czarny</option>
+              <option value="#2f6b3c">zielony</option>
+              <option value="#315f8c">niebieski</option>
+              <option value="#76543b">brązowy</option>
+              <option value="#b36b24">pomarańczowy</option>
+            </select>
+          </label>
+          <span id="global-status" class="status"></span>
+        </div>
+      </div>
+    </section>
+
+    <section class="chart-block">
+      <div class="chart-header">
+        <h3>Pomiary jednego okresu</h3>
+        <span id="summary-single" class="summary"></span>
+      </div>
+      <div id="chart-single"></div>
+    </section>
+
+    <div class="toolbar" style="justify-content:space-between">
+      <div>
+        <button id="save-data-1">Zapisz dane</button>
+        <button id="load-data-1">Wczytaj dane</button>
+      </div>
+      <button id="go-stage-2">Przejdź dalej →</button>
+    </div>
+  </section>
+
+  <section id="stage-2" hidden>
+    <div class="toolbar" style="margin-top:0">
+      <button id="back-stage-1">← Wróć</button>
+    </div>
+
+    <h1>Pomiary okresu — porównanie metod</h1>
+    <p class="subtitle">
+      Dane z pierwszego etapu pozostają zachowane. Teraz można wprowadzić wyniki T = t₁₀ / 10.
+    </p>
+
+    <section class="controls">
+      <div class="panel">
+        <h2>1 okres — dane z etapu 1</h2>
+        <div id="list-single-stage2" class="measurements"></div>
+        <div class="toolbar">
+          <button id="clear-single-stage2">Wyczyść grupę</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>10 okresów / 10</h2>
+        <div class="entry">
+          <input id="input-ten" inputmode="decimal" autocomplete="off" placeholder="np. 1,90" aria-label="Okres wyznaczony z pomiaru dziesięciu okresów">
+          <button id="add-ten">Dodaj</button>
+        </div>
+        <div class="small">Wpisz już wynik T = t₁₀ / 10, w sekundach.</div>
+        <div id="list-ten" class="measurements"></div>
+        <div class="toolbar">
+          <button id="clear-ten">Wyczyść grupę</button>
+        </div>
+      </div>
+    </section>
+
+    <div class="toolbar">
+      <button id="toggle-means">Pokaż średnie</button>
+      <button id="toggle-central70">Pokaż około 70% wokół średniej</button>
+      <button id="save-data-2">Zapisz dane</button>
+      <button id="load-data-2">Wczytaj dane</button>
+      <button id="clear-all">Wyczyść wszystko</button>
+      <span id="file-status-stage2" class="status"></span>
+
+      <label class="color-control">1 okres:
+        <select id="color-single-stage2" aria-label="Kolor pomiarów pojedynczego okresu">
+          <option value="#111111">czarny</option>
+          <option value="#2f6b3c">zielony</option>
+          <option value="#315f8c">niebieski</option>
+          <option value="#76543b">brązowy</option>
+          <option value="#b36b24">pomarańczowy</option>
+        </select>
+      </label>
+
+      <label class="color-control">10 okresów / 10:
+        <select id="color-ten" aria-label="Kolor pomiarów dziesięciu okresów">
+          <option value="#111111">czarny</option>
+          <option value="#2f6b3c">zielony</option>
+          <option value="#315f8c">niebieski</option>
+          <option value="#76543b">brązowy</option>
+          <option value="#b36b24">pomarańczowy</option>
+        </select>
+      </label>
+    </div>
+
+    <section class="chart-block">
+      <div class="chart-header">
+        <h3>Okres z pomiaru 10 okresów</h3>
+        <span id="summary-ten" class="summary"></span>
+      </div>
+      <div id="chart-ten"></div>
+    </section>
+
+    <section class="chart-block">
+      <div class="chart-header">
+        <h3>Porównanie obu metod — wspólna skala</h3>
+        <span id="summary-combined" class="summary"></span>
+      </div>
+      <div id="chart-combined"></div>
+    </section>
+
+    <p class="note">
+      „Wyklucz” pozostawia punkt widoczny, ale usuwa go ze średniej i z automatycznego doboru skali.
+      „Usuń” służy do poprawiania błędnie wpisanego wyniku.
+      Średnia, granice przedziału około 70% i jego połowa szerokości są wyświetlane do setnych sekundy; obliczenia wewnętrzne zachowują pełną precyzję.<br>
+      „Pokaż około 70% wokół średniej” zaznacza symetryczny przedział wokół średniej obejmujący około 70% aktywnych wyników. Pokazywana jest także połowa szerokości tego przedziału.
+    </p>
+  </section>
+  <input id="load-data-file" type="file" accept=".json,application/json" hidden>
+</main>
+
+<script>
+(() => {
+  "use strict";
+
+  const STORAGE_KEY = "okres-pomiary-v3";
+  // Wyniki opracowania serii pokazujemy konsekwentnie do setnych sekundy.
+  // Pełna precyzja liczb pozostaje używana wewnętrznie w obliczeniach.
+  const RESULT_DECIMALS = 2;
+
+  let state = {
+    single: [],
+    ten: [],
+    showMeans: false,
+    showCentral70: false,
+    colorSingle: "#111111",
+    colorTen: "#315f8c"
+  };
+
+  const $ = id => document.getElementById(id);
+
+  function uid(){
+    return Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+  }
+
+  function parseObservation(raw){
+    let s = String(raw).trim().replace(/\s+/g,"");
+    if (!s) return null;
+
+    const display = s.replace(".",",");
+    const numeric = s.replace(",", ".");
+
+    if (!/^\d+(?:\.\d+)?$/.test(numeric)) return null;
+
+    const value = Number(numeric);
+    if (!Number.isFinite(value) || value <= 0) return null;
+
+    const parts = numeric.split(".");
+    const intPart = parts[0];
+    const fracPart = parts[1] || "";
+
+    // Liczba cyfr znaczących:
+    // usuwamy zera wiodące przed pierwszą cyfrą niezerową;
+    // zera po przecinku pozostają znaczące.
+    const allDigits = intPart + fracPart;
+    const firstNonZero = allDigits.search(/[1-9]/);
+    if (firstNonZero < 0) return null;
+    const sigDigits = allDigits.length - firstNonZero;
+
+    // Zachowujemy dokładnie liczbę cyfr wpisaną przez użytkownika,
+    // zmieniając tylko separator dziesiętny na przecinek.
+    let displayText = display;
+    if (displayText.startsWith(",")) displayText = "0" + displayText;
+
+    return {
+      value,
+      display: displayText,
+      sigDigits
+    };
+  }
+
+  function formatAxis(v, digits){
+    return v.toFixed(digits).replace(".",",");
+  }
+
+  function formatSig(value, sigDigits){
+    if (!Number.isFinite(value) || value === 0) return "0";
+    const abs = Math.abs(value);
+    const exponent = Math.floor(Math.log10(abs));
+    const decimals = sigDigits - exponent - 1;
+
+    let rounded;
+    if (decimals > 0){
+      rounded = value.toFixed(decimals);
+    } else {
+      const factor = Math.pow(10, -decimals);
+      rounded = String(Math.round(value / factor) * factor);
+    }
+    return rounded.replace(".",",");
+  }
+
+  function active(arr){
+    return arr.filter(d => !d.excluded);
+  }
+
+  function mean(values){
+    if (!values.length) return null;
+    return values.reduce((a,b)=>a+b,0)/values.length;
+  }
+
+  function meanInfo(arr){
+    const a = active(arr);
+    if (!a.length) return null;
+    const m = mean(a.map(d => d.value));
+    const sig = Math.min(...a.map(d => d.sigDigits || 1));
+    return {value:m, sigDigits:sig, display:formatAxis(m,RESULT_DECIMALS)};
+  }
+
+  // Dydaktyczna miara szerokości rozrzutu: wybieramy około 70% aktywnych
+  // wyników najbliższych średniej, a następnie budujemy najmniejszy symetryczny
+  // przedział wokół średniej, który je obejmuje. Nie nazywamy tego odchyleniem
+  // standardowym; ma najpierw pokazać uczniom geometryczny sens „typowego”
+  // rozrzutu wokół średniej.
+  function observationDecimals(d){
+    const s=String(d && d.display != null ? d.display : d.value).replace(",", ".");
+    const i=s.indexOf(".");
+    return i < 0 ? 0 : s.length-i-1;
+  }
+
+  function central70Info(arr){
+    const a=active(arr);
+    if (a.length < 3) return null;
+
+    const m=mean(a.map(d=>d.value));
+    const target=Math.max(1,Math.round(a.length*0.70));
+    const ordered=[...a].sort((p,q)=>{
+      const dp=Math.abs(p.value-m);
+      const dq=Math.abs(q.value-m);
+      return dp-dq || p.value-q.value;
+    });
+
+    const chosen=ordered.slice(0,target);
+    const radius=Math.max(...chosen.map(d=>Math.abs(d.value-m)));
+    const eps=Math.max(1e-12,Math.abs(m)*1e-12);
+    const inside=a.filter(d=>Math.abs(d.value-m)<=radius+eps);
+    const sig=Math.min(...a.map(d=>d.sigDigits || 1));
+    const decimals=RESULT_DECIMALS;
+
+    return {
+      mean:m,
+      low:m-radius,
+      high:m+radius,
+      radius,
+      count:inside.length,
+      n:a.length,
+      percent:100*inside.length/a.length,
+      sigDigits:sig,
+      decimals,
+      selectedIds:new Set(inside.map(d=>d.id))
+    };
+  }
+
+  function formatCentral70(value,info){
+    return value.toFixed(info.decimals).replace(".",",");
+  }
+
+  function central70Text(info){
+    if (!info) return "";
+    const half=formatCentral70(info.radius,info);
+    return `${info.count}/${info.n} (${Math.round(info.percent)}%) · połowa szerokości = ${half} s`;
+  }
+
+  function save(){
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }catch(e){}
+  }
+
+  function load(){
+    try{
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+      if (!saved || !Array.isArray(saved.single) || !Array.isArray(saved.ten)) return;
+
+      // Obsługa ewentualnych starszych danych:
+      state = {
+        single: saved.single.map(repairObservation).filter(d => Number.isFinite(d.value)),
+        ten: saved.ten.map(repairObservation).filter(d => Number.isFinite(d.value)),
+        showMeans: !!saved.showMeans,
+        showCentral70: !!saved.showCentral70,
+        colorSingle: saved.colorSingle || "#111111",
+        colorTen: saved.colorTen || "#315f8c"
+      };
+    }catch(e){}
+  }
+
+  function repairObservation(d){
+    return {
+      id: d && d.id ? d.id : uid(),
+      value: Number(d && d.value),
+      display: d && d.display ? String(d.display) : String(d && d.value).replace(".",","),
+      sigDigits: Number.isFinite(d && d.sigDigits) ? d.sigDigits : 3,
+      excluded: !!(d && d.excluded)
+    };
+  }
+
+  function setFileStatus(message){
+    const s1=$("global-status");
+    const s2=$("file-status-stage2");
+    if (s1) s1.textContent=message;
+    if (s2) s2.textContent=message;
+  }
+
+  function filenameTimestamp(){
+    const d=new Date();
+    const p=n=>String(n).padStart(2,"0");
+    return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}_${p(d.getHours())}-${p(d.getMinutes())}`;
+  }
+
+  function exportData(){
+    const payload={
+      format:"pomiary-okresu-app",
+      version:1,
+      savedAt:new Date().toISOString(),
+      state:{
+        single:state.single,
+        ten:state.ten,
+        showMeans:state.showMeans,
+        showCentral70:state.showCentral70,
+        colorSingle:state.colorSingle,
+        colorTen:state.colorTen
+      }
+    };
+
+    const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url;
+    a.download=`pomiary_okresu_${filenameTimestamp()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    setFileStatus("Dane zapisane do pliku JSON.");
+  }
+
+  async function importDataFile(file){
+    if (!file) return;
+    try{
+      const raw=await file.text();
+      const parsed=JSON.parse(raw);
+      const saved=parsed && parsed.format==="pomiary-okresu-app" ? parsed.state : parsed;
+
+      if (!saved || !Array.isArray(saved.single) || !Array.isArray(saved.ten)){
+        throw new Error("Nieprawidłowy format pliku.");
+      }
+
+      const single=saved.single.map(repairObservation).filter(d=>Number.isFinite(d.value) && d.value>0);
+      const ten=saved.ten.map(repairObservation).filter(d=>Number.isFinite(d.value) && d.value>0);
+
+      state={
+        single,
+        ten,
+        // Po wczytaniu średnie pozostają ukryte, żeby nie zdradzać toku lekcji.
+        showMeans:false,
+        showCentral70:false,
+        colorSingle:saved.colorSingle || "#111111",
+        colorTen:saved.colorTen || "#315f8c"
+      };
+
+      save();
+      render();
+      setFileStatus(`Wczytano: ${file.name} · ${single.length} + ${ten.length} pomiarów.`);
+    }catch(e){
+      setFileStatus("Nie udało się wczytać pliku danych.");
+      alert("Nie udało się wczytać pliku danych. Sprawdź, czy jest to plik JSON zapisany przez tę aplikację.");
+    }finally{
+      $("load-data-file").value="";
+    }
+  }
+
+  function add(group,inputId){
+    const input = $(inputId);
+    const obs = parseObservation(input.value);
+
+    if (!obs){
+      $("global-status").textContent = "Nie rozpoznaję tej wartości.";
+      input.focus();
+      input.select();
+      return;
+    }
+
+    state[group].push({
+      id: uid(),
+      value: obs.value,
+      display: obs.display,
+      sigDigits: obs.sigDigits,
+      excluded: false
+    });
+
+    input.value = "";
+    $("global-status").textContent = "";
+    save();
+    render();
+    input.focus();
+  }
+
+  function remove(group,id){
+    state[group] = state[group].filter(d => d.id !== id);
+    save();
+    render();
+  }
+
+  function toggleExclude(group,id){
+    const d = state[group].find(x => x.id === id);
+    if (!d) return;
+    d.excluded = !d.excluded;
+    save();
+    render();
+  }
+
+  function clearGroup(group){
+    state[group] = [];
+    save();
+    render();
+  }
+
+  function clearAll(){
+    state.single = [];
+    state.ten = [];
+    $("global-status").textContent = "";
+    save();
+    render();
+  }
+
+  function makeChip(group,d){
+    const wrap = document.createElement("span");
+    wrap.className = "chip" + (d.excluded ? " excluded" : "");
+    wrap.title = d.excluded ? "Pomiar wykluczony z obliczeń" : "Pomiar aktywny";
+
+    const txt = document.createElement("span");
+    txt.textContent = d.display;
+    wrap.appendChild(txt);
+
+    const ex = document.createElement("button");
+    ex.type = "button";
+    ex.textContent = d.excluded ? "przywróć" : "wyklucz";
+    ex.title = d.excluded ? "Przywróć pomiar" : "Wyklucz pomiar odstający";
+    ex.addEventListener("click", () => toggleExclude(group,d.id));
+    wrap.appendChild(ex);
+
+    const del = document.createElement("button");
+    del.type = "button";
+    del.textContent = "×";
+    del.title = "Usuń błędnie wpisany pomiar";
+    del.addEventListener("click", () => remove(group,d.id));
+    wrap.appendChild(del);
+
+    return wrap;
+  }
+
+  function renderListInto(boxId,group){
+    const box=$(boxId);
+    if (!box) return;
+    box.innerHTML="";
+    state[group].forEach(d=>box.appendChild(makeChip(group,d)));
+  }
+
+  function renderLists(){
+    renderListInto("list-single","single");
+    renderListInto("list-single-stage2","single");
+    renderListInto("list-ten","ten");
+
+    if ($("clear-single")) $("clear-single").disabled = state.single.length === 0;
+    if ($("clear-single-stage2")) $("clear-single-stage2").disabled = state.single.length === 0;
+    if ($("clear-ten")) $("clear-ten").disabled = state.ten.length === 0;
+    if ($("clear-all")) $("clear-all").disabled = state.single.length === 0 && state.ten.length === 0;
+  }
+
+  function niceStep(raw){
+    if (!Number.isFinite(raw) || raw <= 0) return 0.1;
+    const p = Math.pow(10, Math.floor(Math.log10(raw)));
+    const n = raw/p;
+    let m;
+    if (n <= 1) m=1;
+    else if (n <= 2) m=2;
+    else if (n <= 5) m=5;
+    else m=10;
+    return m*p;
+  }
+
+  function domain(values){
+    if (!values.length) return [0,1];
+
+    let lo = Math.min(...values);
+    let hi = Math.max(...values);
+
+    if (lo === hi){
+      const pad = Math.max(0.03, Math.abs(lo)*0.03);
+      lo -= pad;
+      hi += pad;
+    } else {
+      const span = hi-lo;
+      const pad = Math.max(span*0.12, 0.02);
+      lo -= pad;
+      hi += pad;
+    }
+
+    // Oś pomiarowa pracuje w setnych sekundy.
+    lo = Math.floor((lo + 1e-10) * 100) / 100;
+    hi = Math.ceil((hi - 1e-10) * 100) / 100;
+
+    if (hi <= lo) hi = lo + 0.01;
+    return [lo,hi];
+  }
+
+  function svgEl(tag,attrs={}){
+    const e = document.createElementNS("http://www.w3.org/2000/svg",tag);
+    for (const [k,v] of Object.entries(attrs)) e.setAttribute(k,v);
+    return e;
+  }
+
+  function textEl(x,y,text,cls,anchor=null){
+    const t = svgEl("text",{x,y,class:cls});
+    if (anchor) t.setAttribute("text-anchor",anchor);
+    t.textContent = text;
+    return t;
+  }
+
+  function xMap(v,lo,hi,L,R){
+    return L + (v-lo)/(hi-lo)*(R-L);
+  }
+
+  function levelsFor(points,lo,hi,L,R){
+    const sorted = points.map(d=>({d,x:xMap(d.value,lo,hi,L,R)}))
+      .sort((a,b)=>a.x-b.x);
+
+    const placed = [];
+    const result = new Map();
+    const minDx = 12;
+
+    for (const p of sorted){
+      let level=0;
+      while (placed.some(q => q.level===level && Math.abs(q.x-p.x)<minDx)){
+        level++;
+      }
+      placed.push({x:p.x,level});
+      result.set(p.d.id,level);
+    }
+    return result;
+  }
+
+  function chooseLabelStep(span, mode){
+    // Kreski są zawsze co 0,01 s. Zmieniamy jedynie gęstość podpisów.
+    if (mode === "combined"){
+      if (span <= 0.10) return 0.02;
+      if (span <= 0.30) return 0.05;
+      if (span <= 0.60) return 0.10;
+      return niceStep(span/8);
+    }
+
+    if (span <= 0.08) return 0.01;
+    if (span <= 0.22) return 0.02;
+    if (span <= 0.50) return 0.05;
+    return 0.10;
+  }
+
+  function drawAxis(svg,lo,hi,y,L,R,mode="individual"){
+    svg.appendChild(svgEl("line",{x1:L,y1:y,x2:R,y2:y,class:"axis"}));
+
+    const tickStep = 0.01;
+    const span = hi-lo;
+    const labelStep = chooseLabelStep(span, mode);
+
+    const firstTick = Math.ceil((lo-1e-10)/tickStep)*tickStep;
+    const firstLabel = Math.ceil((lo-1e-10)/labelStep)*labelStep;
+
+    let labelIndex = Math.round(firstLabel / tickStep);
+    let tickIndex = Math.round(firstTick / tickStep);
+
+    for (let v=firstTick, guard=0; v<=hi+1e-9 && guard<200; v+=tickStep, tickIndex++, guard++){
+      const vv = Math.round(v*100)/100;
+      const x = xMap(vv,lo,hi,L,R);
+
+      const ratio = vv / labelStep;
+      const isLabel = Math.abs(ratio - Math.round(ratio)) < 1e-7;
+
+      svg.appendChild(svgEl("line",{
+        x1:x,
+        y1:y-(isLabel ? 6 : 3),
+        x2:x,
+        y2:y+(isLabel ? 6 : 3),
+        class:"tick"
+      }));
+
+      if (isLabel){
+        svg.appendChild(textEl(x,y+23,formatAxis(vv,2),"tick-label","middle"));
+      }
+    }
+
+    svg.appendChild(textEl((L+R)/2,y+44,"T [s]","tick-label","middle"));
+  }
+
+  function drawMean(svg,info,lo,hi,L,R,y1,y2,labelY,color){
+    if (!info) return;
+    const x=xMap(info.value,lo,hi,L,R);
+
+    svg.appendChild(svgEl("line",{
+      x1:x,y1:y1,x2:x,y2:y2,
+      stroke:color,
+      "stroke-width":2,
+      "stroke-dasharray":"6 4"
+    }));
+
+    const t=textEl(x,labelY,"średnia "+info.display+" s","mean-label","middle");
+    t.setAttribute("fill",color);
+    svg.appendChild(t);
+  }
+
+  function drawCentral70(svg,info,lo,hi,L,R,yTop,yBottom,labelY){
+    if (!info) return;
+    const x1=xMap(info.low,lo,hi,L,R);
+    const x2=xMap(info.high,lo,hi,L,R);
+
+    svg.appendChild(svgEl("rect",{
+      x:Math.min(x1,x2),
+      y:yTop,
+      width:Math.abs(x2-x1),
+      height:Math.max(1,yBottom-yTop),
+      class:"central70-band"
+    }));
+
+    svg.appendChild(svgEl("line",{x1:x1,y1:yTop,x2:x1,y2:yBottom,class:"central70-boundary"}));
+    svg.appendChild(svgEl("line",{x1:x2,y1:yTop,x2:x2,y2:yBottom,class:"central70-boundary"}));
+
+    const left=textEl(x1,labelY,formatCentral70(info.low,info)+" s","central70-label","middle");
+    const right=textEl(x2,labelY,formatCentral70(info.high,info)+" s","central70-label","middle");
+    svg.appendChild(left);
+    svg.appendChild(right);
+  }
+
+  function drawPoint(svg,d,type,x,y,highlight=false){
+    if (d.excluded){
+      if (type==="single"){
+        svg.appendChild(svgEl("circle",{cx:x,cy:y,r:5,class:"point-excluded"}));
+      }else{
+        svg.appendChild(svgEl("rect",{x:x-5,y:y-5,width:10,height:10,class:"point-excluded"}));
+      }
+      return;
+    }
+
+    const pointColor=highlight ? "#b42318" : (type==="single" ? state.colorSingle : state.colorTen);
+
+    if (type==="single"){
+      svg.appendChild(svgEl("circle",{
+        cx:x,cy:y,r:5,
+        fill:pointColor,
+        stroke:pointColor
+      }));
+    }else{
+      svg.appendChild(svgEl("rect",{
+        x:x-5,y:y-5,width:10,height:10,
+        fill:pointColor,
+        stroke:pointColor,
+        "stroke-width":1
+      }));
+    }
+  }
+
+  function plotOne(containerId,arr,type){
+    const box=$(containerId);
+    box.innerHTML="";
+
+    if (!arr.length){
+      const e=document.createElement("div");
+      e.className="empty";
+      e.textContent="Brak pomiarów.";
+      box.appendChild(e);
+      return;
+    }
+
+    const a=active(arr);
+    const central=state.showCentral70 ? central70Info(arr) : null;
+    const scaleValues=(a.length ? a : arr).map(d=>d.value);
+    if (central) scaleValues.push(central.low,central.high);
+    const [lo,hi]=domain(scaleValues);
+
+    const W=1000,L=56,R=976;
+    const levels=levelsFor(arr,lo,hi,L,R);
+    const maxLevel = Math.max(0, ...Array.from(levels.values()));
+
+    // Przy wielu takich samych lub bardzo bliskich wynikach punkty układają się
+    // pionowo. Wykres automatycznie zwiększa wysokość tak, by nic nie zniknęło.
+    const stackStep = 14;
+    const topRoom = 54;      // miejsce nad zwykłym pojedynczym punktem
+    const extra = Math.max(0, maxLevel*stackStep - topRoom);
+
+    const baseY = 88 + extra;
+
+    // Etykiety wartości odkładamy pod dolnym końcem linii przerywanych,
+    // w osobnym pasie pod punktami. Dzięki temu nie nachodzą na dane.
+    const guideBottomY = baseY + 12;
+    const boundaryLabelY = baseY + 31;
+    const meanLabelY = baseY + 47;
+    const axisY = baseY + 74;
+    const H = axisY + 53;
+
+    const svg=svgEl("svg",{viewBox:`0 0 ${W} ${H}`,role:"img"});
+
+    if (central){
+      drawCentral70(svg,central,lo,hi,L,R,22,guideBottomY,boundaryLabelY);
+    }
+    drawAxis(svg,lo,hi,axisY,L,R,"individual");
+
+    arr.forEach(d=>{
+      const x=xMap(d.value,lo,hi,L,R);
+      const y=baseY-(levels.get(d.id)||0)*stackStep;
+      const highlight=!!(central && central.selectedIds.has(d.id));
+      drawPoint(svg,d,type,x,y,highlight);
+    });
+
+    if (state.showMeans){
+      const info=meanInfo(arr);
+      const color=type==="single" ? state.colorSingle : state.colorTen;
+      drawMean(svg,info,lo,hi,L,R,18,guideBottomY,meanLabelY,color);
+    }
+
+    box.appendChild(svg);
+  }
+
+  function plotCombined(){
+    const box=$("chart-combined");
+    box.innerHTML="";
+
+    const all=state.single.concat(state.ten);
+    if (!all.length){
+      const e=document.createElement("div");
+      e.className="empty";
+      e.textContent="Brak pomiarów.";
+      box.appendChild(e);
+      return;
+    }
+
+    const activeAll=active(state.single).concat(active(state.ten));
+    const centralSingle=state.showCentral70 ? central70Info(state.single) : null;
+    const centralTen=state.showCentral70 ? central70Info(state.ten) : null;
+    const scaleValues=(activeAll.length ? activeAll : all).map(d=>d.value);
+    if (centralSingle) scaleValues.push(centralSingle.low,centralSingle.high);
+    if (centralTen) scaleValues.push(centralTen.low,centralTen.high);
+    const [lo,hi]=domain(scaleValues);
+
+    const W=1000,L=145,R=976;
+    const stackStep=13;
+    const topMargin=42;
+    // Większy odstęp między seriami zostawia miejsce na etykiety
+    // umieszczone pod dolnym końcem linii przerywanych.
+    const gapBetweenLanes=88;
+
+    const levelsSingle=levelsFor(state.single,lo,hi,L,R);
+    const levelsTen=levelsFor(state.ten,lo,hi,L,R);
+
+    const maxSingle=Math.max(0,...Array.from(levelsSingle.values()));
+    const maxTen=Math.max(0,...Array.from(levelsTen.values()));
+
+    const singleStack=maxSingle*stackStep;
+    const tenStack=maxTen*stackStep;
+
+    // Każda seria dostaje własny pionowy pas, którego wysokość zależy od liczby
+    // nakładających się punktów. Dzięki temu nawet 30 identycznych wyników
+    // w każdej grupie pozostaje czytelne.
+    const ySingle=topMargin+singleStack;
+    const topTen=ySingle+gapBetweenLanes;
+    const yTen=topTen+tenStack;
+    const axisY=yTen+78;
+    const H=axisY+53;
+
+    const svg=svgEl("svg",{viewBox:`0 0 ${W} ${H}`,role:"img"});
+    drawAxis(svg,lo,hi,axisY,L,R,"combined");
+
+    const lanes=[
+      {
+        arr:state.single,
+        y:ySingle,
+        label:"1 okres",
+        type:"single",
+        color:state.colorSingle,
+        levels:levelsSingle,
+        central:centralSingle
+      },
+      {
+        arr:state.ten,
+        y:yTen,
+        label:"10 okresów / 10",
+        type:"ten",
+        color:state.colorTen,
+        levels:levelsTen,
+        central:centralTen
+      }
+    ];
+
+    lanes.forEach(lane=>{
+      svg.appendChild(textEl(8,lane.y+4,lane.label,"lane-label"));
+
+      const guideBottomY=lane.y+14;
+      const boundaryLabelY=lane.y+34;
+      const meanLabelY=lane.y+50;
+
+      if (lane.central){
+        drawCentral70(svg,lane.central,lo,hi,L,R,lane.y-32,guideBottomY,boundaryLabelY);
+      }
+
+      lane.arr.forEach(d=>{
+        const x=xMap(d.value,lo,hi,L,R);
+        const y=lane.y-(lane.levels.get(d.id)||0)*stackStep;
+        const highlight=!!(lane.central && lane.central.selectedIds.has(d.id));
+        drawPoint(svg,d,lane.type,x,y,highlight);
+      });
+
+      if (state.showMeans){
+        const info=meanInfo(lane.arr);
+        if (info){
+          const x=xMap(info.value,lo,hi,L,R);
+          svg.appendChild(svgEl("line",{
+            x1:x,y1:lane.y-28,x2:x,y2:guideBottomY,
+            stroke:lane.color,
+            "stroke-width":2,
+            "stroke-dasharray":"6 4"
+          }));
+          const lab=textEl(x,meanLabelY,info.display+" s","mean-label","middle");
+          lab.setAttribute("fill",lane.color);
+          svg.appendChild(lab);
+        }
+      }
+    });
+
+    box.appendChild(svg);
+  }
+
+  function renderSummaries(){
+    const s=active(state.single);
+    const t=active(state.ten);
+    const sm=meanInfo(state.single);
+    const tm=meanInfo(state.ten);
+    const c70s=state.showCentral70 ? central70Info(state.single) : null;
+    const c70t=state.showCentral70 ? central70Info(state.ten) : null;
+
+    $("summary-single").textContent =
+      `n = ${s.length}` +
+      (state.showMeans && sm ? ` · średnia = ${sm.display} s` : "") +
+      (c70s ? ` · ok. 70%: ${central70Text(c70s)}` : "");
+
+    $("summary-ten").textContent =
+      `n = ${t.length}` +
+      (state.showMeans && tm ? ` · średnia = ${tm.display} s` : "") +
+      (c70t ? ` · ok. 70%: ${central70Text(c70t)}` : "");
+
+    let combined=`aktywne: ${s.length} + ${t.length}`;
+    if (state.showCentral70){
+      const parts=[];
+      if (c70s) parts.push(`1 okres: ${central70Text(c70s)}`);
+      if (c70t) parts.push(`10 okresów / 10: ${central70Text(c70t)}`);
+      if (parts.length) combined += ` · ${parts.join(" · ")}`;
+    }
+    $("summary-combined").textContent = combined;
+
+    $("toggle-means").textContent = state.showMeans ? "Ukryj średnie" : "Pokaż średnie";
+    $("toggle-central70").textContent = state.showCentral70
+      ? "Ukryj około 70% wokół średniej"
+      : "Pokaż około 70% wokół średniej";
+    $("toggle-central70").disabled = s.length < 3 && t.length < 3;
+  }
+
+  function render(){
+    if ($("color-single")) $("color-single").value=state.colorSingle;
+    if ($("color-single-stage2")) $("color-single-stage2").value=state.colorSingle;
+    if ($("color-ten")) $("color-ten").value=state.colorTen;
+
+    renderLists();
+    renderSummaries();
+    plotOne("chart-single",state.single,"single");
+    plotOne("chart-ten",state.ten,"ten");
+    plotCombined();
+  }
+
+  $("add-single").addEventListener("click",()=>add("single","input-single"));
+  $("add-ten").addEventListener("click",()=>add("ten","input-ten"));
+
+  $("input-single").addEventListener("keydown",e=>{
+    if (e.key==="Enter") add("single","input-single");
+  });
+
+  $("input-ten").addEventListener("keydown",e=>{
+    if (e.key==="Enter") add("ten","input-ten");
+  });
+
+  $("clear-single").addEventListener("click",()=>clearGroup("single"));
+  $("clear-single-stage2").addEventListener("click",()=>clearGroup("single"));
+  $("clear-ten").addEventListener("click",()=>clearGroup("ten"));
+  $("clear-all").addEventListener("click",clearAll);
+
+  $("toggle-means").addEventListener("click",()=>{
+    state.showMeans=!state.showMeans;
+    if (!state.showMeans) state.showCentral70=false;
+    save();
+    render();
+  });
+
+  $("toggle-central70").addEventListener("click",()=>{
+    state.showCentral70=!state.showCentral70;
+    if (state.showCentral70) state.showMeans=true;
+    save();
+    render();
+  });
+
+  function setSingleColor(value){
+    state.colorSingle=value;
+    save();
+    render();
+  }
+
+  $("color-single").addEventListener("change",e=>setSingleColor(e.target.value));
+  $("color-single-stage2").addEventListener("change",e=>setSingleColor(e.target.value));
+
+  $("color-ten").addEventListener("change",e=>{
+    state.colorTen=e.target.value;
+    save();
+    render();
+  });
+
+  $("save-data-1").addEventListener("click",exportData);
+  $("save-data-2").addEventListener("click",exportData);
+
+  function openLoadDialog(){
+    $("load-data-file").click();
+  }
+
+  $("load-data-1").addEventListener("click",openLoadDialog);
+  $("load-data-2").addEventListener("click",openLoadDialog);
+  $("load-data-file").addEventListener("change",e=>importDataFile(e.target.files[0]));
+
+  $("go-stage-2").addEventListener("click",()=>{
+    $("stage-1").hidden=true;
+    $("stage-2").hidden=false;
+    state.showMeans=false;
+    state.showCentral70=false;
+    save();
+    render();
+    window.scrollTo({top:0,behavior:"smooth"});
+    setTimeout(()=>$("input-ten").focus(),100);
+  });
+
+  $("back-stage-1").addEventListener("click",()=>{
+    $("stage-2").hidden=true;
+    $("stage-1").hidden=false;
+    state.showMeans=false;
+    state.showCentral70=false;
+    save();
+    render();
+    window.scrollTo({top:0,behavior:"smooth"});
+  });
+
+  // Wersja do rozdania uczniom: przy każdym otwarciu zaczynamy od pustego stanu.
+  // Poprzednia sesja zapisana w localStorage nie jest automatycznie wczytywana.
+  // Dane klasy można wczytać jawnie przyciskiem „Wczytaj dane” z pliku JSON.
+  // Zawsze zaczynamy od etapu 1.
+  $("stage-1").hidden=false;
+  $("stage-2").hidden=true;
+  state.showMeans=false;
+  state.showCentral70=false;
+  render();
+})();
+</script>
+</body>
+</html>
